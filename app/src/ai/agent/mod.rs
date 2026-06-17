@@ -669,6 +669,9 @@ pub enum RenderableAIError {
         /// When `will_attempt_resume` is true, this indicates whether we're waiting for network
         /// connectivity before attempting the resume.
         waiting_for_network: bool,
+        /// True when the error originates from a user-side issue (e.g., model not allowed,
+        /// blocked due to fraud, plan restriction). Maps the task to FAILED state instead of ERROR.
+        is_user_error: bool,
     },
 }
 
@@ -739,6 +742,10 @@ pub enum TransientNetworkErrorKind {
 
 impl From<&Arc<AIApiError>> for RenderableAIError {
     fn from(value: &Arc<AIApiError>) -> Self {
+        // Non-retryable 4xx errors (403 fraud block, 400 model/plan restriction, etc.)
+        // are user-originating — map them to a user error so the task reaches FAILED
+        // state rather than ERROR state.
+        let is_user_error = !value.is_recoverable();
         match value.as_ref() {
             AIApiError::QuotaLimit {
                 user_display_message,
@@ -761,6 +768,7 @@ impl From<&Arc<AIApiError>> for RenderableAIError {
                         error_message: format!("Request failed with error: {value:?}"),
                         will_attempt_resume: false,
                         waiting_for_network: false,
+                        is_user_error,
                     }
                 }
             }
@@ -777,6 +785,7 @@ impl From<&Arc<AIApiError>> for RenderableAIError {
                 error_message: format!("Request failed with error: {value:?}"),
                 will_attempt_resume: false,
                 waiting_for_network: false,
+                is_user_error,
             },
         }
     }
