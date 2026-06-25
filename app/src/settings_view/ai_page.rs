@@ -9103,8 +9103,7 @@ impl SettingsWidget for CustomModelRoutersWidget {
             .with_child(
                 warpui::elements::Shrinkable::new(
                     1.,
-                    build_sub_header(appearance, "Custom Model Routers", Some(header_color))
-                        .finish(),
+                    build_sub_header(appearance, "Custom Routers", Some(header_color)).finish(),
                 )
                 .finish(),
             )
@@ -9130,7 +9129,7 @@ impl SettingsWidget for CustomModelRoutersWidget {
                     .finish(),
             )
             .with_child(render_ai_setting_description(
-                "Create named model routers that automatically pick the right model based on task complexity or prompt content.",
+                "Automatically route tasks to specific models based on task complexity or custom rules. Custom routers will appear in your model selector menu.",
                 is_any_ai_enabled,
                 app,
             ));
@@ -9165,7 +9164,12 @@ impl SettingsWidget for CustomModelRoutersWidget {
             c
         };
 
-        column.finish()
+        // Add trailing space beneath this section (matching sibling sections
+        // like AWS Bedrock) so the following section's title isn't crowded
+        // against the router cards.
+        Container::new(column.finish())
+            .with_margin_bottom(HEADER_PADDING)
+            .finish()
     }
 }
 
