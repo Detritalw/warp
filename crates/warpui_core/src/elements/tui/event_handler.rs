@@ -1,12 +1,14 @@
 //! [`TuiEventHandler`]: wraps a child element and runs callbacks for keys the
-//! child itself did not handle.
+//! child itself did not handle. (Mouse gestures — clicks and hover — live on
+//! [`TuiHoverable`](super::TuiHoverable), mirroring the GUI split between
+//! `EventHandler` and `Hoverable`.)
 //!
 //! # Construction
 //! Wrap a child with [`TuiEventHandler::new`] and register handlers with
 //! [`on_key`](TuiEventHandler::on_key), matching against the
 //! [`Keystroke::key`](crate::keymap::Keystroke) string (e.g. `"enter"`,
-//! `"a"`). Layout, render, height, and cursor are transparent — they delegate to
-//! the wrapped child.
+//! `"a"`). Layout, render, height, and cursor are transparent — they delegate
+//! to the wrapped child.
 //!
 //! # Dispatch policy
 //! On [`dispatch_event`](TuiElement::dispatch_event) the event is offered to the
