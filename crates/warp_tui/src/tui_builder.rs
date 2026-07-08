@@ -5,6 +5,7 @@
 //! Composition and layout stay with the views and the element library; the
 //! builder only owns styles.
 
+use pathfinder_color::ColorU;
 use warp::tui_export::Appearance;
 use warp_core::ui::color::blend::Blend;
 use warp_core::ui::theme::{Fill as ThemeFill, WarpTheme};
@@ -99,6 +100,29 @@ impl TuiUiBuilder {
     /// `!` shell mode).
     pub(crate) fn shell_mode_accent_style(&self) -> TuiStyle {
         TuiStyle::default().fg(cell_color(ThemeFill::Solid(self.warp_theme.ansi_fg_blue())))
+    }
+
+    /// The warping indicator's base fill (spinner glyph and "Warping" text):
+    /// the terminal palette's normal yellow, per the TUI design.
+    fn warping_base_fill(&self) -> ThemeFill {
+        ThemeFill::from(self.warp_theme.terminal_colors().normal.yellow)
+    }
+
+    /// The warping indicator's base color as a solid color, for per-glyph
+    /// shimmer lerping.
+    pub(crate) fn warping_base_color(&self) -> ColorU {
+        self.warping_base_fill().into_solid()
+    }
+
+    /// The peak color the "Warping" shimmer band lerps toward: the terminal
+    /// palette's bright white.
+    pub(crate) fn warping_shimmer_color(&self) -> ColorU {
+        ThemeFill::from(self.warp_theme.terminal_colors().bright.white).into_solid()
+    }
+
+    /// Style for the warping indicator's spinner glyph.
+    pub(crate) fn warping_spinner_style(&self) -> TuiStyle {
+        TuiStyle::default().fg(cell_color(self.warping_base_fill()))
     }
 
     /// Collapsible-header style while the pointer hovers it.
