@@ -25,7 +25,7 @@ use warpui_core::{App, AppContext, EntityId, EntityIdMap, ViewContext, ViewHandl
 
 use super::{TuiAIBlock, TuiAIBlockSection};
 use crate::agent_block_sections::render_fallback_tool_call_section;
-use crate::test_fixtures::{add_test_action_model, TestHostView};
+use crate::test_fixtures::{add_test_action_model_and_events, TestHostView};
 
 #[test]
 fn simple_agent_block_reports_full_height_and_renders_content() {
@@ -42,7 +42,7 @@ fn simple_agent_block_reports_full_height_and_renders_content() {
         );
         app.read(|app_ctx| {
             let block = block.as_ref(app_ctx);
-            assert_eq!(block.desired_height(20, app_ctx), 6);
+            assert_eq!(desired_height(block, 20, app_ctx), 6);
 
             let mut presenter = TuiPresenter::new();
             let frame = presenter.present_element(
@@ -88,8 +88,8 @@ fn simple_agent_block_reflows_height_at_narrow_width() {
         );
         app.read(|app_ctx| {
             let block = block.as_ref(app_ctx);
-            let wide = block.desired_height(40, app_ctx);
-            let narrow = block.desired_height(6, app_ctx);
+            let wide = desired_height(block, 40, app_ctx);
+            let narrow = desired_height(block, 6, app_ctx);
             assert!(narrow > wide, "narrow text should occupy more logical rows");
         });
     });
@@ -359,7 +359,7 @@ fn agent_block_desired_height_accounts_for_tool_call_stub() {
         app.read(|app_ctx| {
             let block = block.as_ref(app_ctx);
             // One tool-call stub line plus the block's top padding row.
-            assert_eq!(block.desired_height(40, app_ctx), 2);
+            assert_eq!(desired_height(block, 40, app_ctx), 2);
         });
     });
 }
@@ -623,7 +623,7 @@ struct FakeAgentBlockModel {
 /// Builds an agent block with fresh test identity, registered in a fresh TUI
 /// window and backed by a real action model.
 fn test_agent_block(app: &mut App, model: FakeAgentBlockModel) -> ViewHandle<TuiAIBlock> {
-    let action_model = add_test_action_model(app);
+    let (action_model, model_events) = add_test_action_model_and_events(app);
     let terminal_model = Arc::new(FairMutex::new(TerminalModel::mock(None, None)));
     app.update(|ctx| {
         let (window_id, _) = ctx.add_tui_window(
@@ -639,6 +639,7 @@ fn test_agent_block(app: &mut App, model: FakeAgentBlockModel) -> ViewHandle<Tui
                 AIAgentExchangeId::new(),
                 Rc::new(model),
                 action_model,
+                &model_events,
                 terminal_model,
                 ctx,
             )
@@ -806,10 +807,29 @@ fn plain_text_message(id: &str, text: &str) -> AIAgentOutputMessage {
     )
 }
 
+/// Measures the block by laying out its rendered element with an empty layout
+/// context; these tests exercise blocks with no registered child views.
+fn desired_height(block: &TuiAIBlock, width: u16, app: &AppContext) -> usize {
+    let mut rendered_views = EntityIdMap::default();
+    let mut ctx = TuiLayoutContext {
+        rendered_views: &mut rendered_views,
+    };
+    let mut element = block.render_element(app);
+    usize::from(
+        element
+            .layout(
+                TuiConstraint::loose(TuiSize::new(width, u16::MAX)),
+                &mut ctx,
+                app,
+            )
+            .height,
+    )
+}
+
 /// Renders the block at `width` and returns its non-empty rows, trimmed of
 /// trailing padding, so header/body assertions ignore blank rows.
 fn render_block_lines(block: &TuiAIBlock, width: u16, app: &AppContext) -> Vec<String> {
-    let height = block.desired_height(width, app).max(1) as u16;
+    let height = desired_height(block, width, app).max(1) as u16;
     let mut presenter = TuiPresenter::new();
     let frame = presenter.present_element(
         block.render_element(app),
