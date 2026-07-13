@@ -494,11 +494,14 @@ pub(super) struct EventLoop {
     state: State,
     proxy: EventLoopProxy<CustomEvent>,
     ime_enabled: bool,
-    /// Last IME cursor area sent to winit. On Wayland, used to skip redundant
-    /// `set_ime_cursor_area` calls (which can re-trigger IME events on some
-    /// compositors, notably KDE Plasma). On X11 this is still recorded but
-    /// identical areas are not skipped so the position nudge can run.
-    last_ime_cursor_area: Option<(LogicalPosition<f32>, LogicalSize<f32>)>,
+    /// Last IME cursor area sent to winit, keyed by the target window. On
+    /// Wayland, used to skip redundant `set_ime_cursor_area` calls (which can
+    /// re-trigger IME events on some compositors, notably KDE Plasma). The
+    /// window id is part of the key so focusing another Warp window with the
+    /// same logical rect still updates the newly focused surface. On X11 this
+    /// is still recorded but identical areas are not skipped so the position
+    /// nudge can run.
+    last_ime_cursor_area: Option<(WindowId, LogicalPosition<f32>, LogicalSize<f32>)>,
     /// Whether to downrank non-NVIDIA vulkan adapters. This is set to true when we detect a DRI3
     /// error that occurs when trying to present against a non-NVIDIA Vulkan adapter when the
     /// PRIME Profile is set to "Performance" mode.  It's not fully clear why this error occurs. Our
@@ -1845,15 +1848,18 @@ impl EventLoop {
             // Skip identical updates on Wayland only. On KDE, repeated
             // `set_ime_cursor_area` can re-fire IME enable/preedit events and
             // recreate a feedback loop with ActiveCursorPositionUpdated.
+            // Key by window so a focus switch to another surface with the same
+            // logical rect still sends set_ime_position to the new window.
             // On X11, always continue so the nudge below can defeat winit's
             // cached IME cursor area after WindowMoved/WindowResized.
-            if is_wayland && self.last_ime_cursor_area == Some((position, size)) {
+            let next_area = (active_window_id, position, size);
+            if is_wayland && self.last_ime_cursor_area == Some(next_area) {
                 return;
             }
-            self.last_ime_cursor_area = Some((position, size));
+            self.last_ime_cursor_area = Some(next_area);
 
             log::debug!(
-                "Updating IME cursor area to position=({:.1}, {:.1}) size=({:.1}, {:.1}) is_wayland={is_wayland}",
+                "Updating IME cursor area for window={active_window_id:?} position=({:.1}, {:.1}) size=({:.1}, {:.1}) is_wayland={is_wayland}",
                 position.x,
                 position.y,
                 size.width,
